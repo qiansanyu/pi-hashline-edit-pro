@@ -1083,4 +1083,36 @@ describe("batched provided line endings", () => {
       expect(await readFile(path, "utf-8")).toBe("A1\r\nA2\nb\nC\n");
     });
   });
+
+  it("trims a repeated closing row inside a batch and still commits once", async () => {
+    const source = ["if (x) {", "    a();", "}", "b();", ""].join("\n");
+    await withTempFile("sample.java", source, async ({ cwd, path }) => {
+      const { getTool, handlers, ctx } = await setupBatchTools(cwd);
+      const readTool = getTool("read");
+      const editTool = getTool("replace");
+      const undoTool = getTool("undo_last_change");
+
+      const text = (await readTool.execute("r1", { path: "sample.java" }, undefined, undefined, ctx)).content[0].text as string;
+      const ifRef = anchorFor(text, "if (x) {");
+      const aRef = anchorFor(text, "    a();");
+      const bRef = anchorFor(text, "b();");
+      const firstArgs = { remove_from: ifRef, remove_to: aRef, text: ["if (x) {", "    a2();", "}"] };
+      const secondArgs = { remove_from: bRef, remove_to: bRef, text: ["B();"] };
+      const message = assistantMessage([toolCall("s1", "replace", firstArgs), toolCall("s2", "replace", secondArgs)]);
+      await (handlers.get("message_end")!({ type: "message_end", message }, ctx) as Promise<unknown>);
+
+      const first = await editTool.execute("s1", firstArgs, undefined, undefined, ctx);
+      expect(first.content[0].text).toBe("In batch 1 (queued)");
+      const last = await editTool.execute("s2", secondArgs, undefined, undefined, ctx);
+
+      expect(last.content[0].text).toContain("Batch 1: 2 edits applied as one commit");
+      expect(last.details.warnings).toEqual(
+        expect.arrayContaining([expect.stringContaining("[W_SEAM_TRIMMED]")]),
+      );
+      expect(await readFile(path, "utf-8")).toBe(["if (x) {", "    a2();", "}", "B();", ""].join("\n"));
+
+      await undoTool.execute("u1", { path: "sample.java" }, undefined, undefined, ctx);
+      expect(await readFile(path, "utf-8")).toBe(source);
+    });
+  });
 });

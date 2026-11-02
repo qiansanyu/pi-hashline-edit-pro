@@ -556,4 +556,86 @@ describe("regReplace - stringified text payloads", () => {
       expect(await readFile(path, "utf-8")).toBe('aaa\n["    \\"pi-hashline-edit-pro\\": \\"^4.3.5\\",""]\nccc\n');
     });
   });
+
+  it("drops a row text repeats from below the range and reports it", async () => {
+    const source = ["if (x) {", "    a();", "}", "b();", ""].join("\n");
+    await withTempFile("sample.java", source, async ({ cwd, path }) => {
+      const { pi, getTool } = makeFakePiRegistry();
+      regReplace(pi);
+      const tool = getTool("replace");
+      const hashes = await lineHashes(source, path);
+
+      const result = await tool.execute(
+        "e1",
+        {
+          remove_from: hashes[0]!, remove_to: hashes[1]!,
+          text: ["if (x) {", "    a2();", "}"],
+        },
+        undefined,
+        undefined,
+        { cwd } as any,
+      );
+
+      expect(await readFile(path, "utf-8")).toBe(["if (x) {", "    a2();", "}", "b();", ""].join("\n"));
+      expect(result.details.warnings).toEqual(
+        expect.arrayContaining([expect.stringContaining("[W_SEAM_TRIMMED]")]),
+      );
+      expect(result.structuredContent.warnings).toEqual(
+        expect.arrayContaining([expect.stringContaining("[W_SEAM_TRIMMED]")]),
+      );
+      expect(result.details.metrics?.added_lines).toBe(2);
+      expect(result.details.metrics?.removed_lines).toBe(2);
+    });
+  });
+
+  it("keeps the repeated row when strict input rejects the trim", async () => {
+    const source = ["if (x) {", "    a();", "}", "b();", ""].join("\n");
+    await withTempFile("sample.java", source, async ({ cwd, path }) => {
+      await mkdir(join(cwd, ".config", "pi-hashline-edit-pro"), { recursive: true });
+      await writeFile(
+        join(cwd, ".config", "pi-hashline-edit-pro", "config.json"),
+        JSON.stringify({ autoRead: true, strictInput: true }),
+        "utf-8",
+      );
+      const { pi, getTool } = makeFakePiRegistry();
+      regReplace(pi);
+      const tool = getTool("replace");
+      const hashes = await lineHashes(source, path);
+
+      const failure = await toolError(() => tool.execute(
+        "e1",
+        {
+          remove_from: hashes[0]!, remove_to: hashes[1]!,
+          text: ["if (x) {", "    a2();", "}"],
+        },
+        undefined,
+        undefined,
+        { cwd } as any,
+      ));
+
+      expect(failure).toContain("[E_BAD_SHAPE]");
+      expect(await readFile(path, "utf-8")).toBe(source);
+    });
+  });
+
+  it("leaves a single repeated content row alone", async () => {
+    const source = ["a", "x", "foo", "q", ""].join("\n");
+    await withTempFile("sample.txt", source, async ({ cwd, path }) => {
+      const { pi, getTool } = makeFakePiRegistry();
+      regReplace(pi);
+      const tool = getTool("replace");
+      const hashes = await lineHashes(source, path);
+
+      const result = await tool.execute(
+        "e1",
+        { remove_from: hashes[1]!, remove_to: hashes[1]!, text: ["foo"] },
+        undefined,
+        undefined,
+        { cwd } as any,
+      );
+
+      expect(result.details.warnings).toBeUndefined();
+      expect(await readFile(path, "utf-8")).toBe(["a", "foo", "foo", "q", ""].join("\n"));
+    });
+  });
 });

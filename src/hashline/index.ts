@@ -53,3 +53,9 @@ export {
 	fmtRow,
 	changedRange,
 } from "./apply";
+
+export {
+	trimSeamDuplicates,
+	isSeamCloser,
+	type SeamTrimResult,
+} from "./seam";

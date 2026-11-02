@@ -88,6 +88,7 @@ export interface ExecPipelineOptions {
   endingOverrides?: (LineEnding | undefined)[];
   preserveDeletionSeparators?: boolean;
   anchorCarry?: number;
+  seamTrim?: boolean;
 }
 
 export function hashSpan(hashes: string[], from: string, to: string): [number, number] | undefined {
@@ -143,9 +144,10 @@ function planReplaceBatchMember(input: BatchPlannerInput): BatchMemberPlan {
     servedHashes: input.served,
     signal: input.signal,
     baseFileLines: input.base.baseLines,
+    seamTrim: true,
   });
   return {
-    hedit: built.edit,
+    hedit: planned.edit,
     warnings: [...literalEscapes, ...built.warnings],
     planned,
     foldedLines: 0,
@@ -197,6 +199,7 @@ export async function execPipeline(
       displayPath,
       served,
       options?.stripWarning,
+      options?.seamTrim,
     );
   } catch (error) {
     await noteAnchorError(absolutePath, error, options?.noPersist);
@@ -206,7 +209,7 @@ export async function execPipeline(
   const result = anchorResult.content;
   const isNoop = result === originalNormalized;
 
-  const pipeSpan = isNoop ? undefined : spanForEdit(originalHashes, effectiveEdit.hash_bounds[0].hash, effectiveEdit.hash_bounds[1].hash, result);
+  const pipeSpan = isNoop ? undefined : spanForEdit(originalHashes, anchorResult.edit.hash_bounds[0].hash, anchorResult.edit.hash_bounds[1].hash, result);
   if (pipeSpan && options?.anchorCarry !== undefined) pipeSpan.carry = options.anchorCarry;
   const pipeSpans = pipeSpan ? [pipeSpan] : undefined;
 
@@ -220,7 +223,7 @@ export async function execPipeline(
   const warnings = [...editWarnings, ...(anchorResult.warnings ?? [])];
   await throwIfStrictInput(warnings);
   const { totalAddedLines, totalRemovedLines } = countLineChanges(
-    effectiveEdit, originalHashes, isNoop,
+    anchorResult.edit, originalHashes, isNoop,
   );
   return {
     path: displayPath,
@@ -240,7 +243,7 @@ export async function execPipeline(
     totalRemovedLines,
     identity,
     ...(pipeSpans ? { spans: pipeSpans } : {}),
-    ...(effectiveEdit.content_separators !== undefined ? { contentSeparators: effectiveEdit.content_separators } : {}),
+    ...(anchorResult.edit.content_separators !== undefined ? { contentSeparators: anchorResult.edit.content_separators } : {}),
   };
 }
 
@@ -278,7 +281,7 @@ export async function compPreview(
       targetPath,
       normalized,
       cwd,
-      { accessMode: constants.R_OK, noPersist: true, signal },
+      { accessMode: constants.R_OK, noPersist: true, signal, seamTrim: true },
     );
     return previewFromPipe(pipe);
   } catch (error: unknown) {
@@ -345,7 +348,7 @@ export function buildToolDef(flags: EditToolFlags = DEFAULT_EDIT_FLAGS): ToolDef
               targetPath,
               normalizedParams,
               ctx.cwd,
-              { accessMode: constants.R_OK | constants.W_OK, signal },
+              { accessMode: constants.R_OK | constants.W_OK, signal, seamTrim: true },
             );
             return await commitEdit(pipe, {
               path: pipe.path,

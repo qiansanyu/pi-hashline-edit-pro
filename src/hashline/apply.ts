@@ -13,6 +13,7 @@ import {
 	type HEdit,
 	type StripWarningLocation,
 } from "./resolve";
+import { trimSeamDuplicates } from "./seam";
 
 type LIdx = {
 	fileLines: string[];
@@ -144,6 +145,7 @@ function assemble(
 export interface PlannedEdit {
   resolved: RHEdit;
   warnings: string[];
+  edit: HEdit;
 }
 
 
@@ -157,6 +159,7 @@ export function planEdit(
     signal?: AbortSignal;
     baseFileLines?: string[];
     stripWarning?: StripWarningLocation;
+    seamTrim?: boolean;
   },
 ): PlannedEdit {
   const signal = options?.signal;
@@ -192,16 +195,29 @@ export function planEdit(
 
   warnUnicodeEsc(prefixFixed, warnings);
 
-  const resolved = initialResolved;
+  let resolved = initialResolved;
 
   if (options?.servedHashes) {
     abortIf(signal);
     assertRangeServed(resolved, lineIndex.fileLines, fileHashes, options.servedHashes, options?.filePath);
   }
 
+  if (options?.seamTrim === true) {
+    const seam = trimSeamDuplicates(resolved, lineIndex.fileLines, fileHashes);
+    if (seam.notice !== undefined) {
+      resolved = seam.resolved;
+      warnings.push(seam.notice);
+    }
+  }
+
   return {
     resolved,
     warnings,
+    edit: {
+      content_lines: resolved.content_lines,
+      hash_bounds: [{ hash: resolved.hash_bounds[0].hash }, { hash: resolved.hash_bounds[1].hash }],
+      ...(resolved.content_separators === undefined ? {} : { content_separators: resolved.content_separators }),
+    },
   };
 }
 export function applyEdit(
@@ -212,18 +228,20 @@ export function applyEdit(
 	filePath?: string,
 	servedHashes?: ReadonlyMap<string, string>,
 	stripWarning?: StripWarningLocation,
+	seamTrim?: boolean,
 	): {
 	content: string;
 	firstChangedLine: number | undefined;
 	lastChangedLine: number | undefined;
 	warnings?: string[];
 	noopEdit?: NEdit;
+	edit: HEdit;
 } {
   abortIf(signal);
   if (precomputedHashes === undefined) {
     throw new Error("[E_BAD_SHAPE] applyEdit requires the file's allocated anchors; derive them via lineHashes(content, path) first.");
   }
-  const planned = planEdit(content, edit, precomputedHashes, { filePath, servedHashes, signal, stripWarning });
+  const planned = planEdit(content, edit, precomputedHashes, { filePath, servedHashes, signal, stripWarning, seamTrim });
   const lineIndex = buildIdx(content);
   const warnings = planned.warnings;
   const resolved = planned.resolved;
@@ -235,6 +253,7 @@ export function applyEdit(
 			lastChangedLine: undefined,
 			...(warnings.length ? { warnings } : {}),
 			noopEdit: { loc: spanResult.loc, currentContent: spanResult.currentContent },
+			edit: planned.edit,
 		};
 	}
 
@@ -246,6 +265,7 @@ export function applyEdit(
 		firstChangedLine: range?.firstChangedLine,
 		lastChangedLine: range?.lastChangedLine,
 		...(warnings.length ? { warnings } : {}),
+		edit: planned.edit,
 	};
 }
 

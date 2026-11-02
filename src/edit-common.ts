@@ -296,7 +296,7 @@ export async function resolveEditTargetWithRequirement(input: PathRequirementInp
   return anchorTarget;
 }
 
-const STRICT_INPUT_REJECT_CODES = ["[W_BAD_SHAPE]", "[W_BAD_REF]", "[W_INVALID_PATCH]", "[W_BARE_HASH_PREFIX]", "[W_ANCHOR_CASE]"];
+const STRICT_INPUT_REJECT_CODES = ["[W_BAD_SHAPE]", "[W_BAD_REF]", "[W_INVALID_PATCH]", "[W_BARE_HASH_PREFIX]", "[W_ANCHOR_CASE]", "[W_SEAM_TRIMMED]"];
 export async function throwIfStrictInput(warnings: string[]): Promise<void> {
   const fixes = warnings.filter((warning) => STRICT_INPUT_REJECT_CODES.some((code) => warning.startsWith(code)));
   if (fixes.length === 0) return;
