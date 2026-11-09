@@ -15,7 +15,7 @@
 
 `mine` 从 `feat/seam-trim`（`b8fe887`）拉出，因此自带下面第 1 项改动。
 
-> 运行时：pi 加载的是 `pi-hashline-edit-pro-lean`，它依赖 `github:qiansanyu/pi-hashline-edit-pro#write-echo`，落地在
+> 运行时：pi 加载的是 `pi-hashline-edit-pro-lean`，它依赖 `github:qiansanyu/pi-hashline-edit-pro#mine`，落地在
 > `~/.pi/agent/git/github.com/qiansanyu/pi-hashline-edit-pro-lean/node_modules/pi-hashline-edit-pro`。
 > **`mine` 分支的改动不会自动生效**，生效步骤见文末「如何生效」。
 
@@ -87,6 +87,36 @@ npx vitest run
 - `text` 尾部重复的是一行普通文本 → 不裁（避免 0.14% 误报；7 次事故里剩这 1 次）。
 - 范围偏短但 `text` 没重打任何东西（只留下多余的一行）→ 抓不到。需要注释/括号配平类检查，语言相关且误报高，暂不做。
 
+### 2. `[H_LITERAL_ESCAPE]`：提示自带字符数，不再用换行记法引用字面反斜杠（`6133c8d`）
+
+**问题**：原文案是 `text: "\n" written as literal text` —— 把字面反斜杠直接塞进双引号，而 `"\n"` 正是"换行"的通行记法，且不给字符数。读者无法从 transcript 判断落盘的是 2 个字符 `\` `n` 还是一个换行，只能 `cat -A` / `python repr(bytes)` 复核。同一套说法的 `payloadGuideline` 还宣称 "escapes are decoded once … `\\uXXXX` the literal text"，与实测（参数以值到达、工具逐字写）不符，"读提示推理"这条路因此整条失效。
+
+**做法**：提示改为 `text: 2 chars "\\n" written as literal text` —— 双反斜杠表字面（JSON 记法）并报字符数；guideline 改为指向测量（"以 hint 报的字符数为准"），不再断言层位。
+
+**联动**：这串字同时是另外两段代码的输入，必须一起改，否则静默降级：
+
+| 文件 | 改动 |
+|---|---|
+| `src/utils.ts` | 新增 `formatLiteralEscape` / `parseLiteralEscape`；提示改用前者 |
+| `src/edit-fidelity.ts` | 两个解析正则接受 `N chars` 前缀；捕获后 `parseLiteralEscape` 还原再喂 `includes` 与去重键 —— 不还原则 `(anchor│ col N)` 定位与 `[H_UNICODE_LOST]` 去重**静默**失效 |
+| `src/edit-common.ts` | `payloadGuideline` 改为层无关表述 |
+| `README.md` | `text` 参数两处、`[H_LITERAL_ESCAPE]` 行的样例与说明 |
+| `test/**` | 19 处 hint 断言 + 2 处 guideline 断言 |
+
+lean 侧对应 1 行：`pi-hashline-edit-pro-lean/index.ts` 的 replace guideline，另在 lean 仓库提交。
+
+**验证**：
+
+```bash
+npx tsc --noEmit
+npx eslint "src/**/*.ts" "test/**/*.ts"
+npx vitest run
+```
+
+结果：2051 通过 / 1 失败，失败项是既有的 `test/core/hashline-limit.test.ts`（Windows 路径转义，改前的干净树同样失败，与本改动无关）。
+
+**边界**：不动 hint 的触发集合（仍是 `\n` `\t` `\r` `\"` `\uXXXX`），不动 diff 渲染（diff 本就逐字），不动 undo。
+
 ## 如何生效
 
 `mine` 不会自动进入运行时。两条路：
@@ -97,11 +127,11 @@ npx vitest run
    P=~/.pi/agent/git/github.com/qiansanyu/pi-hashline-edit-pro-lean/node_modules/pi-hashline-edit-pro
    cp src/hashline/seam.ts "$P/src/hashline/"
    cp src/hashline/apply.ts src/hashline/index.ts "$P/src/hashline/"
-   cp src/replace.ts src/edit-common.ts "$P/src/"
+   cp src/replace.ts src/utils.ts src/edit-fidelity.ts src/edit-common.ts "$P/src/"
    cp README.md "$P/"
    ```
 
-2. **长期生效**：把 `mine` 合入 `write-echo` 推到 origin，再让 pi 重装 `pi-hashline-edit-pro-lean`。
+2. **长期生效**：把 `mine` 推到 origin，再让 pi 重装 `pi-hashline-edit-pro-lean`（它依赖 `#mine`）。lean 侧 `index.ts` 的改动在 lean 仓库单独提交，同步时一并 `cp index.ts "$L/"`。
 
 ## 回退
 
