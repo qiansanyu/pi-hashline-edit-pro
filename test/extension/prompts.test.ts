@@ -233,7 +233,7 @@ describe("edit prompt flag variants", () => {
     const replace = withReplacePrompts(replaceBase, DEFAULT_EDIT_FLAGS);
     expect(replace.guidelines.filter((g) => g.includes("same-file calls in one message commit as one batch"))).toHaveLength(1);
     expect(replace.guidelines.some((g) => g.includes("anchors resolve the file"))).toBe(true);
-    expect(replace.guidelines.some((g) => g.includes("`text` is written exactly as received"))).toBe(true);
+    expect(replace.guidelines.some((g) => g.includes("the payload is written exactly as received"))).toBe(true);
     const insert = withInsertPrompts(insertBase, DEFAULT_EDIT_FLAGS);
     expect(insert.guidelines.some((g) => g.includes("same-file calls in one message commit as one batch"))).toBe(false);
     const match = withReplaceMatchPrompts(withinBase, DEFAULT_EDIT_FLAGS);
@@ -245,7 +245,7 @@ describe("edit prompt flag variants", () => {
     const replace = withReplacePrompts(replaceBase, off).guidelines.join("\n");
     expect(replace).toContain("`replace`/`insert`: same-file calls in one message commit as one batch");
     expect(replace).toContain("`replace`/`insert`: anchors resolve the file");
-    expect(replace).toContain("`replace`/`insert`: `text` is written exactly as received");
+    expect(replace).toContain("`replace`/`insert`: the payload is written exactly as received");
     expect(replace).toContain("`replace`/`insert`/`undo_last_change`: in the post-edit diff");
     expect(replace).not.toContain("`copy`");
     expect(replace).not.toContain("`move`");
@@ -341,7 +341,7 @@ describe("edit prompt flag variants", () => {
     const shared = result.guidelines.join("\n");
     expect(shared).toContain("`replace`/`replace_match`/`insert`/`copy`/`move`: same-file calls in one message commit as one batch");
     expect(shared).toContain("`replace`/`replace_match`/`insert`/`copy`/`move`: anchors resolve the file; `path` is optional");
-    expect(shared).toContain("`replace`/`replace_match`/`insert`: `text` is written exactly as received; escapes are decoded once when the call is parsed, and the tool never decodes again");
+    expect(shared).toContain("`replace`/`replace_match`/`insert`: the payload is written exactly as received and the tool never decodes an escape, so a real line break is a line break");
     expect(shared).toContain("`replace`/`replace_match`/`insert`/`copy`/`move`/`undo_last_change`: in the post-edit diff, `-anchor│` rows are dead anchors");
     expect(shared).toContain("Rows the diff does not show keep their anchors, so a follow-up edit on them needs no re-read");
     const transfer = withTransferPrompts({

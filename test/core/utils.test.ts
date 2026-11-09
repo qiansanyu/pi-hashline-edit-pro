@@ -434,19 +434,19 @@ describe("isModeUnsupported", () => {
 
 describe("literalEscapeHints", () => {
   it("reports literal escape sequences in order", () => {
-    expect(literalEscapeHints([String.raw`stable\u200bCheckout`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: "\u200b" written as literal text`]);
-    expect(literalEscapeHints([String.raw`a\nb`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: "\n" written as literal text`]);
-    expect(literalEscapeHints([String.raw`say \"hi\"`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: "\"" written as literal text`]);
+    expect(literalEscapeHints([String.raw`stable\u200bCheckout`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: 6 chars "\\u200b" written as literal text`]);
+    expect(literalEscapeHints([String.raw`a\nb`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: 2 chars "\\n" written as literal text`]);
+    expect(literalEscapeHints([String.raw`say \"hi\"`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: 2 chars "\\\"" written as literal text`]);
     expect(literalEscapeHints([String.raw`\n\t`], "lines")).toEqual([
-      String.raw`[H_LITERAL_ESCAPE] lines: "\n" written as literal text`,
-      String.raw`[H_LITERAL_ESCAPE] lines: "\t" written as literal text`,
+      String.raw`[H_LITERAL_ESCAPE] lines: 2 chars "\\n" written as literal text`,
+      String.raw`[H_LITERAL_ESCAPE] lines: 2 chars "\\t" written as literal text`,
     ]);
   });
 
   it("reports each distinct escape once and caps the list at three", () => {
     expect(literalEscapeHints([String.raw`\u200b`, String.raw`\u2060`, String.raw`\u200b`], "lines")).toEqual([
-      String.raw`[H_LITERAL_ESCAPE] lines: "\u200b" written as literal text`,
-      String.raw`[H_LITERAL_ESCAPE] lines: "\u2060" written as literal text`,
+      String.raw`[H_LITERAL_ESCAPE] lines: 6 chars "\\u200b" written as literal text`,
+      String.raw`[H_LITERAL_ESCAPE] lines: 6 chars "\\u2060" written as literal text`,
     ]);
     expect(literalEscapeHints([String.raw`\u200b \u2060 \u00a0 \u2011`], "lines")).toHaveLength(3);
   });
@@ -461,7 +461,7 @@ describe("literalEscapeHints", () => {
   it("skips valid surrogate pairs and the dedicated placeholder", () => {
     expect(literalEscapeHints([String.raw`\uD83D\uDE00`], "lines")).toEqual([]);
     expect(literalEscapeHints([String.raw`\uDDDD`], "lines")).toEqual([]);
-    expect(literalEscapeHints([String.raw`\uD83D`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: "\uD83D" written as literal text`]);
+    expect(literalEscapeHints([String.raw`\uD83D`], "lines")).toEqual([String.raw`[H_LITERAL_ESCAPE] lines: 6 chars "\\uD83D" written as literal text`]);
   });
 
   it("skips simple escapes in a line that also has a real break", () => {

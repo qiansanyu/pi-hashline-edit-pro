@@ -1,4 +1,4 @@
-import { isBlankLine, splitLines } from "./utils";
+import { isBlankLine, parseLiteralEscape, splitLines } from "./utils";
 import { HASH_CLASS, HASH_SEP, canon } from "./hashline";
 import type { DiffSpan } from "./replace-diff";
 
@@ -343,7 +343,7 @@ function sharesRun(line: string, grams: Set<string>, size: number): boolean {
 }
 
 const LITERAL_ESCAPE_HINT_PREFIX = "[H_LITERAL_ESCAPE] ";
-const LITERAL_ESCAPE_TEXT_RE = /^\[H_LITERAL_ESCAPE\] [^:]*: "(.*)" written as literal text$/;
+const LITERAL_ESCAPE_TEXT_RE = /^\[H_LITERAL_ESCAPE\] [^:]*: \d+ chars "(.*)" written as literal text$/;
 const MAX_LITERAL_ESCAPE_ROWS = 3;
 
 function literalEscapeColumn(line: string, escape: string): number {
@@ -384,8 +384,10 @@ export function annotateLiteralEscapeHints(
   if (spans === undefined || spans.length === 0) return hints;
   return hints.map((hint) => {
     if (!hint.startsWith(LITERAL_ESCAPE_HINT_PREFIX)) return hint;
-    const escape = LITERAL_ESCAPE_TEXT_RE.exec(hint)?.[1];
-    if (escape === undefined || escape.length === 0) return hint;
+    const quoted = LITERAL_ESCAPE_TEXT_RE.exec(hint)?.[1];
+    if (quoted === undefined) return hint;
+    const escape = parseLiteralEscape(quoted);
+    if (escape.length === 0) return hint;
     const rows = literalEscapeHintRows(resultContent, spans, resultHashes, escape);
     if (rows.length === 0) return hint;
     if (rows.length > MAX_LITERAL_ESCAPE_ROWS) {
@@ -396,7 +398,7 @@ export function annotateLiteralEscapeHints(
   });
 }
 
-const LITERAL_ESCAPE_DETAIL_RE = /^\[H_LITERAL_ESCAPE\] [^:]*: "(.*?)" written as literal text(?: \((.*)\))?\.?$/;
+const LITERAL_ESCAPE_DETAIL_RE = /^\[H_LITERAL_ESCAPE\] [^:]*: \d+ chars "(.*?)" written as literal text(?: \((.*)\))?\.?$/;
 const LITERAL_ESCAPE_ANCHOR_RE = new RegExp(`(${HASH_CLASS})│`, "g");
 const UNICODE_LOST_DETAIL_RE = new RegExp(`^\\[H_UNICODE_LOST\\] (${HASH_CLASS})│ missing "([^"]*)"`);
 
@@ -405,7 +407,7 @@ export function dedupeLiteralEscapeHints(hints: readonly string[]): string[] {
   for (const hint of hints) {
     const literal = LITERAL_ESCAPE_DETAIL_RE.exec(hint);
     if (literal === null) continue;
-    const escape = literal[1] ?? "";
+    const escape = parseLiteralEscape(literal[1] ?? "");
     for (const anchor of (literal[2] ?? "").matchAll(LITERAL_ESCAPE_ANCHOR_RE)) suppressed.add(`${anchor[1]}\0${escape}`);
   }
   if (suppressed.size === 0) return [...hints];

@@ -285,9 +285,9 @@ describe("replace literal escape hints", () => {
         { remove_from: hashes[1]!, remove_to: hashes[1]!, text: [String.raw`stable\u200bCheckout`] },
         undefined, undefined, ctx,
       );
-      expect(result.content[0].text).toContain(String.raw`[H_LITERAL_ESCAPE] text: "\u200b" written as literal text`);
+      expect(result.content[0].text).toContain(String.raw`[H_LITERAL_ESCAPE] text: 6 chars "\\u200b" written as literal text`);
       const hint = result.details.hints?.[0] ?? "";
-      expect(hint).toContain(String.raw`[H_LITERAL_ESCAPE] text: "\u200b" written as literal text`);
+      expect(hint).toContain(String.raw`[H_LITERAL_ESCAPE] text: 6 chars "\\u200b" written as literal text`);
       expect(hint).toContain("col 7");
       expect(result.details.metrics?.warnings).toBe(0);
       expect(await readFile(path, "utf-8")).toBe("aaa\nstable\\u200bCheckout\nccc\n");

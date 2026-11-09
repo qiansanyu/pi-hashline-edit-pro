@@ -424,6 +424,15 @@ const LITERAL_ESCAPE_RE = /\\(?:u([0-9a-fA-F]{4})|([ntr"]))/g;
 const REAL_LINE_BREAK_RE = /[\n\r]/;
 const MAX_LITERAL_ESCAPE_HINTS = 3;
 
+export function formatLiteralEscape(escape: string): string {
+	const quoted = escape.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+	return `${escape.length} chars "${quoted}"`;
+}
+
+export function parseLiteralEscape(quoted: string): string {
+	return quoted.replace(/\\(.)/g, "$1");
+}
+
 function isSurrogateEscapePair(line: string, index: number, hex: string): boolean {
 	const code = Number.parseInt(hex, 16);
 	if (code >= 0xd800 && code <= 0xdbff) {
@@ -458,7 +467,7 @@ export function literalEscapeHints(lines: string[], label: string): string[] {
 			const text = match[0];
 			if (seen.has(text)) continue;
 			seen.add(text);
-			hints.push(`[H_LITERAL_ESCAPE] ${label}: "${text}" written as literal text`);
+			hints.push(`[H_LITERAL_ESCAPE] ${label}: ${formatLiteralEscape(text)} written as literal text`);
 			if (hints.length >= MAX_LITERAL_ESCAPE_HINTS) return hints;
 		}
 	}

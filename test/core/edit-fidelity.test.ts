@@ -509,10 +509,10 @@ describe("fidelityHints", () => {
 describe("dedupeLiteralEscapeHints", () => {
   it("suppresses a lost hint when a literal-escape hint names the same row and escape", () => {
     const hints = [
-      String.raw`[H_LITERAL_ESCAPE] text: "\u200b" written as literal text (zbbbx│ col 4).`,
+      String.raw`[H_LITERAL_ESCAPE] text: 6 chars "\\u200b" written as literal text (zbbbx│ col 4).`,
       String.raw`[H_UNICODE_LOST] zbbbx│ missing "\u200b"; aaaaz│ has it at col 7.`,
       String.raw`[H_UNICODE_LOST] zcccx│ missing "\u200b"; aaaaz│ has it at col 7.`,
-      String.raw`[H_LITERAL_ESCAPE] match: "\u2060" written as literal text (zdddx│ col 2).`,
+      String.raw`[H_LITERAL_ESCAPE] match: 6 chars "\\u2060" written as literal text (zdddx│ col 2).`,
       String.raw`[H_UNICODE_LOST] zdddx│ missing "\u2060"; aaaaz│ has it at col 3.`,
     ];
     expect(dedupeLiteralEscapeHints(hints)).toEqual([hints[0], hints[2], hints[3]]);
@@ -520,7 +520,7 @@ describe("dedupeLiteralEscapeHints", () => {
 
   it("keeps a hint when the escape differs or the row has no literal-escape match", () => {
     const hints = [
-      String.raw`[H_LITERAL_ESCAPE] text: "\u200b" written as literal text (zbbbx│ col 4).`,
+      String.raw`[H_LITERAL_ESCAPE] text: 6 chars "\\u200b" written as literal text (zbbbx│ col 4).`,
       String.raw`[H_UNICODE_LOST] zbbbx│ missing "\u2060"; aaaaz│ has it at col 7.`,
       String.raw`[H_UNICODE_LOST] zcccx│ missing "\u200b"; aaaaz│ has it at col 7.`,
     ];

@@ -120,7 +120,7 @@ function pathGuideline(flags: EditToolFlags): string {
 
 function payloadGuideline(flags: EditToolFlags): string {
   const tools = operationNames(SHARED_PAYLOAD_OPS, flags);
-  return `${tools}: \`text\` is written exactly as received; escapes are decoded once when the call is parsed, and the tool never decodes again — \`\\uXXXX\` is the character, \`\\\\uXXXX\` the literal text.`;
+  return `${tools}: the payload is written exactly as received and the tool never decodes an escape, so a real line break is a line break. \`[H_LITERAL_ESCAPE]\` counts the literal characters that landed — go by that count, not by a backslash-doubling rule.`;
 }
 
 function strictInputGuideline(flags: EditToolFlags): string {
